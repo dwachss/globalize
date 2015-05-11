@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<title>Globalize datepicker demo</title>
+<style>
+	.calendarBlock {
+		display: table;
+	}
+	.calendarRow {
+		display: table-row;
+	}
+	.calendar {
+		display: table-cell;
+		padding: 2px;
+		border: 1px solid black;
+		border-collapse: collapse;
+	}
+</style>
+</head>
+<body>
+<div id=container></div>
+<script src="cldr.js"></script>
+<script src="cldr/cldr/event.js"></script>
+<script src="cldr/cldr/supplemental.js"></script>
+<script src="dist/globalize.js"></script>
+<script src="dist/globalize/number.js"></script>
+<script src="dist/globalize/date.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.js"></script>
+
+<script>
+$.when (
+	$.getJSON('cldr/main/en/numbers.json'),
+	$.getJSON('cldr/main/en/layout.json'), // look at {bundle}/layout/orientation/characterOrder
+	$.getJSON('external/cldr-data/main/en/dateFields.json'), // look at {bundle}/dates/fields/month/relative-type--1 or type-1
+	$.getJSON('external/cldr-data/main/en/ca-gregorian.json'),
+	$.getJSON('external/cldr-data/main/en/ca-hebrew.json'),
+	$.getJSON('external/cldr-data/main/en/ca-islamic.json'),
+	$.getJSON('external/cldr-data/main/he/numbers.json'),
+	$.getJSON('external/cldr-data/main/he/layout.json'),
+	$.getJSON('external/cldr-data/main/he/ca-gregorian.json'),
+	$.getJSON('external/cldr-data/main/he/ca-hebrew.json'),
+	$.getJSON('external/cldr-data/main/he/ca-islamic.json'),
+	$.getJSON('external/cldr-data/supplemental/calendarPreferenceData.json'),
+	$.getJSON('external/cldr-data/supplemental/likelySubtags.json')
+).then(function (){
+	$.each (arguments, function (i, json){Globalize.load(json[0]) });
+	var langs = ['en', 'he'];
+	var cals = ['gregorian', 'hebrew', 'islamic'];
+	var i, j, gs = [];
+	langs.forEach(function (lang, i){
+		gs[i] = [];
+		cals.forEach(function (cal, j){
+			gs[i][j] = Globalize(lang+'-u-ca-'+cal);
+			// the following illustrates that the current way Gdate is embedded in Globalize is unworkable
+			gs[i][j].gdate = Globalize.calendars[gs[i][j].cldr.attributes.calendar];
+		});
+	});
+	var d = new Date();
+	var block = $('#container');
+	block.html(generateBlock(d, gs));
+
+	function generateBlock(d, gs){
+		return $('<div>').addClass('calendarBlock').append(gs.map(function(cals){
+			return generateRow(d, cals);
+		}));
+	}
+	function generateRow(d, cals){
+		return $('<div>').addClass('calendarRow').append(cals.map(function (g){
+			return generateCalendar(d, g);
+		}));
+	}
+	function generateCalendar (d, g){
+		return $('<div>').addClass('calendar').append(
+			generateNav(d, g),
+			generateTable(d, g),
+			generateText(d, g)
+		);
+	}
+	function generateNav(d, g){
+		console.log(new g.gdate(d));
+		return ('<nav>');
+	}
+	function generateTable(d, g){
+		return $('<table>');
+	}
+	function generateText(d, g){
+		return $('<div>').text(g.formatDate(d, {raw: "EEEE, dd MMMM yyyy"}));
+	}
+
+});
+</script>
+</body>
