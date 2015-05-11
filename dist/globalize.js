@@ -7,10 +7,10 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2015-05-08T08:12Z
+ * Date: 2015-05-11T01:17Z
  */
 /*!
- * Globalize v1.0.0 2015-05-08T08:12Z Released under the MIT license
+ * Globalize v1.0.0 2015-05-11T01:17Z Released under the MIT license
  * http://git.io/TrdQbw
  */
 (function( root, factory ) {
@@ -299,6 +299,7 @@ HebrewDate.prototype._setDate = function(d) {
 		this._year = hd.y;
 		this._month = months[ hd.m ];
 		this._date = hd.d;
+		this._d = d;
   }
 };
 HebrewDate.prototype._setFields = function(era, year, month, date) {
@@ -527,6 +528,7 @@ IslamicDate.prototype._setDate = function(d) {
 		this._year = id.y;
 		this._month = "" + id.m;
 		this._date = id.d;
+		this._d = d;
   }
 };
 IslamicDate.prototype._setFields = function(era, year, month, date) {

@@ -18,7 +18,7 @@
 </head>
 <body>
 <div id=container></div>
-<script src="cldr.js"></script>
+<script src="cldr/cldr.js"></script>
 <script src="cldr/cldr/event.js"></script>
 <script src="cldr/cldr/supplemental.js"></script>
 <script src="dist/globalize.js"></script>
@@ -30,17 +30,17 @@
 $.when (
 	$.getJSON('cldr/main/en/numbers.json'),
 	$.getJSON('cldr/main/en/layout.json'), // look at {bundle}/layout/orientation/characterOrder
-	$.getJSON('external/cldr-data/main/en/dateFields.json'), // look at {bundle}/dates/fields/month/relative-type--1 or type-1
-	$.getJSON('external/cldr-data/main/en/ca-gregorian.json'),
-	$.getJSON('external/cldr-data/main/en/ca-hebrew.json'),
-	$.getJSON('external/cldr-data/main/en/ca-islamic.json'),
-	$.getJSON('external/cldr-data/main/he/numbers.json'),
-	$.getJSON('external/cldr-data/main/he/layout.json'),
-	$.getJSON('external/cldr-data/main/he/ca-gregorian.json'),
-	$.getJSON('external/cldr-data/main/he/ca-hebrew.json'),
-	$.getJSON('external/cldr-data/main/he/ca-islamic.json'),
-	$.getJSON('external/cldr-data/supplemental/calendarPreferenceData.json'),
-	$.getJSON('external/cldr-data/supplemental/likelySubtags.json')
+	$.getJSON('cldr/main/en/dateFields.json'), // look at {bundle}/dates/fields/month/relative-type--1 or type-1
+	$.getJSON('cldr/main/en/ca-gregorian.json'),
+	$.getJSON('cldr/main/en/ca-hebrew.json'),
+	$.getJSON('cldr/main/en/ca-islamic.json'),
+	$.getJSON('cldr/main/he/numbers.json'),
+	$.getJSON('cldr/main/he/layout.json'),
+	$.getJSON('cldr/main/he/ca-gregorian.json'),
+	$.getJSON('cldr/main/he/ca-hebrew.json'),
+	$.getJSON('cldr/main/he/ca-islamic.json'),
+	$.getJSON('cldr/supplemental/calendarPreferenceData.json'),
+	$.getJSON('cldr/supplemental/likelySubtags.json')
 ).then(function (){
 	$.each (arguments, function (i, json){Globalize.load(json[0]) });
 	var langs = ['en', 'he'];
