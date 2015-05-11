@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <title>Globalize datepicker demo</title>
+<link rel="stylesheet" href="xhttp://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" />
 <style>
 	.calendarBlock {
 		display: table;
@@ -15,6 +16,12 @@
 		border-collapse: collapse;
 	}
 </style>
+<style>
+	/* while bootstrapcdn isn't working */
+	.fa::before{
+		content: attr(title);
+	}
+</style>
 </head>
 <body>
 <div id=container></div>
@@ -24,9 +31,17 @@
 <script src="dist/globalize.js"></script>
 <script src="dist/globalize/number.js"></script>
 <script src="dist/globalize/date.js"></script>
+<script src="dist/globalize/plural.js"></script>
+<script src="dist/globalize/relative-time.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.js"></script>
 
 <script>
+function camelCase(s) { 
+	return s.replace(/-(.)/g, function(match, p1) {
+			return p1.toUpperCase();
+	});
+}
+
 $.when (
 	$.getJSON('cldr/main/en/numbers.json'),
 	$.getJSON('cldr/main/en/layout.json'), // look at {bundle}/layout/orientation/characterOrder
@@ -36,11 +51,13 @@ $.when (
 	$.getJSON('cldr/main/en/ca-islamic.json'),
 	$.getJSON('cldr/main/he/numbers.json'),
 	$.getJSON('cldr/main/he/layout.json'),
+	$.getJSON('cldr/main/he/dateFields.json'),
 	$.getJSON('cldr/main/he/ca-gregorian.json'),
 	$.getJSON('cldr/main/he/ca-hebrew.json'),
 	$.getJSON('cldr/main/he/ca-islamic.json'),
 	$.getJSON('cldr/supplemental/calendarPreferenceData.json'),
-	$.getJSON('cldr/supplemental/likelySubtags.json')
+	$.getJSON('cldr/supplemental/likelySubtags.json'),
+	$.getJSON('cldr/supplemental/plurals.json')
 ).then(function (){
 	$.each (arguments, function (i, json){Globalize.load(json[0]) });
 	var langs = ['en', 'he'];
@@ -54,6 +71,10 @@ $.when (
 			gs[i][j].gdate = Globalize.calendars[gs[i][j].cldr.attributes.calendar];
 		});
 	});
+	var faIcons = {
+		1: {month: 'chevron-right', year: 'angle-double-right'},
+		'-1': {month: 'chevron-left', year: 'angle-double-left'}
+	};
 	var d = new Date();
 	var block = $('#container');
 	block.html(generateBlock(d, gs));
@@ -76,8 +97,19 @@ $.when (
 		);
 	}
 	function generateNav(d, g){
-		console.log(new g.gdate(d));
-		return ('<nav>');
+		var gdate = new g.gdate(d);
+		return $('<nav>').append(
+			generateNavButton (gdate, -1, 'month', g),
+			generateNavButton (gdate, -1, 'year', g),
+			generateNavButton (gdate, +1, 'year', g),
+			generateNavButton (gdate, +1, 'month', g)
+		);
+	}
+	function generateNavButton (gdate, dir, unit, g){
+		return $('<button>').attr({
+			'class': 'go fa fa-'+faIcons[dir][unit],
+			title: g.formatRelativeTime(dir, unit),
+		}).data('target', gdate[camelCase('next-'+unit)](dir).toDate());
 	}
 	function generateTable(d, g){
 		return $('<table>');
