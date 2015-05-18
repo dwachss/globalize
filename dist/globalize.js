@@ -7,10 +7,10 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2015-05-11T01:17Z
+ * Date: 2015-05-11T02:19Z
  */
 /*!
- * Globalize v1.0.0 2015-05-11T01:17Z Released under the MIT license
+ * Globalize v1.0.0 2015-05-11T02:19Z Released under the MIT license
  * http://git.io/TrdQbw
  */
 (function( root, factory ) {
@@ -235,7 +235,6 @@ months.forEach( function( value, i ) { monthsReversed[value] = i; } );
 
 function addDay(d, n){
 	var ret = new Date (d.getTime());
-	console.log(ret, ret.getDate(), n);
 	ret.setDate( ret.getDate() + n );
 	return ret;
 }

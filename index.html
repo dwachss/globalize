@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <title>Globalize datepicker demo</title>
-<link rel="stylesheet" href="xhttp://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" />
+<!--This isn't working for me at work. <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" />-->
+<link rel="stylesheet" href="http://fortawesome.github.io/Font-Awesome/assets/font-awesome/css/font-awesome.css" />
 <style>
 	.calendarBlock {
 		display: table;
@@ -14,12 +15,30 @@
 		padding: 2px;
 		border: 1px solid black;
 		border-collapse: collapse;
+		position: relative;
 	}
-</style>
-<style>
-	/* while bootstrapcdn isn't working */
-	.fa::before{
-		content: attr(title);
+	nav {
+		position: absolute;
+		width: 100%;
+	}
+	.month1 {
+		position: absolute;
+		right: 4px;
+	}
+	.year1 {
+		position: absolute;
+		right: 32px;
+	}
+	.month-1 {
+		position: absolute;
+		left: 0px;
+	}
+	.year-1 {
+		position: absolute;
+		left: 28px;
+	}
+	[dir=rtl] nav {
+		transform: scaleX(-1);
 	}
 </style>
 </head>
@@ -45,7 +64,7 @@ function camelCase(s) {
 $.when (
 	$.getJSON('cldr/main/en/numbers.json'),
 	$.getJSON('cldr/main/en/layout.json'), // look at {bundle}/layout/orientation/characterOrder
-	$.getJSON('cldr/main/en/dateFields.json'), // look at {bundle}/dates/fields/month/relative-type--1 or type-1
+	$.getJSON('cldr/main/en/dateFields.json'),
 	$.getJSON('cldr/main/en/ca-gregorian.json'),
 	$.getJSON('cldr/main/en/ca-hebrew.json'),
 	$.getJSON('cldr/main/en/ca-islamic.json'),
@@ -57,9 +76,13 @@ $.when (
 	$.getJSON('cldr/main/he/ca-islamic.json'),
 	$.getJSON('cldr/supplemental/calendarPreferenceData.json'),
 	$.getJSON('cldr/supplemental/likelySubtags.json'),
-	$.getJSON('cldr/supplemental/plurals.json')
+	$.getJSON('cldr/supplemental/plurals.json'),
+	$.getJSON('cldr/supplemental/weekData.json')
 ).then(function (){
 	$.each (arguments, function (i, json){Globalize.load(json[0]) });
+	// why did CLDR think it was a good idea to index days by names?
+	var weekdays = ['sun','mon','tue','wed','thu', 'fri','sat'];
+	var weekdaysRev = {sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6};
 	var langs = ['en', 'he'];
 	var cals = ['gregorian', 'hebrew', 'islamic'];
 	var i, j, gs = [];
@@ -79,6 +102,10 @@ $.when (
 	var block = $('#container');
 	block.html(generateBlock(d, gs));
 
+	$('body').on('click', '.go', function (evt){
+		block.html(generateBlock($.data(this, 'target'), gs));
+	});
+
 	function generateBlock(d, gs){
 		return $('<div>').addClass('calendarBlock').append(gs.map(function(cals){
 			return generateRow(d, cals);
@@ -90,7 +117,9 @@ $.when (
 		}));
 	}
 	function generateCalendar (d, g){
-		return $('<div>').addClass('calendar').append(
+		var dir = g.cldr.main('layout/orientation/characterOrder');
+		dir = dir.replace(/(\w)\w*(?:-|$)/g, '$1'); // CLDR is too verbose. We just need the first letters
+		return $('<div>').addClass('calendar').attr('dir', dir).append(
 			generateNav(d, g),
 			generateTable(d, g),
 			generateText(d, g)
@@ -107,12 +136,55 @@ $.when (
 	}
 	function generateNavButton (gdate, dir, unit, g){
 		return $('<button>').attr({
-			'class': 'go fa fa-'+faIcons[dir][unit],
+			'class': unit+dir+' go fa fa-'+faIcons[dir][unit],
 			title: g.formatRelativeTime(dir, unit),
 		}).data('target', gdate[camelCase('next-'+unit)](dir).toDate());
 	}
 	function generateTable(d, g){
-		return $('<table>');
+		return $('<table>').append(
+			generateCaption(d, g),
+			generateTHead(d, g),
+			generateTBody(d, g)
+		);
+	}
+	function generateCaption(d, g){
+		// using skeleton is broken. Available format differs for each calendar (gregorian defines yMMM but not 
+		// yMMMM; hebrew defines both; islamic uses yyyyMMM only.
+		return $('<caption>').text(g.formatDate(d, {raw: 'MMMM yyyy'}));
+	}
+	function generateTHead (d, g){
+		return $('<thead>').append($('<tr>').append(generateWeekdays(d, g)));
+	}
+	function generateWeekdays (d, g){
+		var firstDay = weekdaysRev[g.cldr.supplemental.weekData.firstDay()];
+		d.setDate (d.getDate() + firstDay - d.getDay());
+		var ret = [];
+		for (var i = 0; i < 7; ++i, d.setDate (d.getDate()+1)){ // weeks are assumed to have 7 days
+			ret.push($('<th>').text(g.formatDate(d, {raw: 'E'})));
+		}
+		return ret;
+	}
+	function generateTBody (d, g){
+		var firstDayOfWeek = weekdaysRev[g.cldr.supplemental.weekData.firstDay()];
+		var lastDayOfWeek = (firstDayOfWeek + 6) % 7;
+		var gd = new g.gdate(d);
+		var month = gd.getMonth();
+		gd = new g.gdate(gd.getEra(), gd.getYear(), gd.getMonth(), 1); // months assumed to start with day 1
+		gd = gd.nextDate((gd.toDate().getDay() - firstDayOfWeek + 7) % 7); // move back to the start of the week
+		var tbody = $('<tbody>');
+		var row = $('<tr>');
+		while (gd.toDate() < d || gd.getMonth() === month || gd.toDate().getDay() !== lastDayOfWeek){
+			row.append(generateDate(gd.toDate(), gd.getMonth() === month, g));
+			if (gd.toDate().getDay() === lastDayOfWeek){
+				tbody.append(row);
+				row = $('<tr>');
+			}
+			gd = gd.nextDate();
+		}
+		return tbody;
+	}
+	function generateDate(d, isThisMonth, g){
+		return $('<td>').text(g.formatDate(d, {raw: 'd'}));
 	}
 	function generateText(d, g){
 		return $('<div>').text(g.formatDate(d, {raw: "EEEE, dd MMMM yyyy"}));
