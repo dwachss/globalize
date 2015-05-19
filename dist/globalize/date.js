@@ -7,10 +7,10 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2015-05-11T02:19Z
+ * Date: 2015-05-19T15:31Z
  */
 /*!
- * Globalize v1.0.0 2015-05-11T02:19Z Released under the MIT license
+ * Globalize v1.0.0 2015-05-19T15:31Z Released under the MIT license
  * http://git.io/TrdQbw
  */
 (function( root, factory ) {
@@ -66,6 +66,64 @@ var createErrorInvalidParameterValue = function( name, value ) {
 };
 
 
+// Should this be part of cldrjs?
+
+
+/**
+ * calendarForLocale( cldr )
+ *
+ * - http://www.unicode.org/reports/tr35/#Key_Type_Definitions
+
+ * - http://www.unicode.org/reports/tr35/#u_Extension
+ */
+var definedCalendars = [ // http://www.unicode.org/repos/cldr/trunk/common/bcp47/calendar.xml
+	// part of this data is available in cldr-data/supplemental/calendarData.json, but not all of it
+	"buddhist",
+	"chinese",
+	"coptic",
+	"dangi",
+	"ethioaa",
+	"ethiopic",
+	"gregorian",
+	"gregory",
+	"hebrew",
+	"indian",
+	"islamic",
+	"islamicc",
+	"islamic-civil",
+	"islamic-rgsa",
+	"islamic-tbla",
+	"islamic-umalqura",
+	"iso8601",
+	"japanese",
+	"persian",
+	"roc"
+];
+
+var gdateCalendarForLocale = function( cldr ) {
+	var cal = cldr.attributes[ "u-ca" ];
+
+	if ( cal && definedCalendars.indexOf( cal ) !== -1) {
+		if ( cal === "gregory" ) {
+			cal = "gregorian";
+		}else if (cal === "islamicc") {
+			cal = "islamic-civil";
+		}
+		return cal;
+	}
+
+	cal = cldr.get( [ "supplemental/calendarPreferenceData", cldr.attributes.region ] );
+	// It might be worth passing in a list of available calendars and returning
+	// the first one on both lists.
+	// But for now, just return the most preferred
+	if (cal) {
+		return cal.split( " " )[0];
+	}
+	// Return the default calendar
+	return "gregorian";
+};
+
+
 
 
 /**
@@ -91,12 +149,15 @@ var createErrorInvalidParameterValue = function( name, value ) {
  */
 
 var dateExpandPattern = function( options, cldr ) {
-	var dateSkeleton, result, skeleton, timeSkeleton, type;
+	var dateSkeleton, result, skeleton, timeSkeleton, type,
+		calendar = gdateCalendarForLocale( cldr );
 
 	function combineDateTime( type, datePattern, timePattern ) {
 		return formatMessage(
 			cldr.main([
-				"dates/calendars/{calendar}/dateTimeFormats",
+				"dates/calendars",
+				calendar,
+				"dateTimeFormats",
 				type
 			]),
 			[ timePattern, datePattern ]
@@ -107,7 +168,9 @@ var dateExpandPattern = function( options, cldr ) {
 		case "skeleton" in options:
 			skeleton = options.skeleton;
 			result = cldr.main([
-				"dates/calendars/{calendar}/dateTimeFormats/availableFormats",
+				"dates/calendars",
+				calendar,
+				"dateTimeFormats/availableFormats",
 				skeleton
 			]);
 			if ( !result ) {
@@ -124,11 +187,15 @@ var dateExpandPattern = function( options, cldr ) {
 				}
 				result = combineDateTime( type,
 					cldr.main([
-						"dates/calendars/{calendar}/dateTimeFormats/availableFormats",
+						"dates/calendars",
+						calendar,
+						"dateTimeFormats/availableFormats",
 						dateSkeleton
 					]),
 					cldr.main([
-						"dates/calendars/{calendar}/dateTimeFormats/availableFormats",
+						"dates/calendars",
+						calendar,
+						"dateTimeFormats/availableFormats",
 						timeSkeleton
 					])
 				);
@@ -138,7 +205,8 @@ var dateExpandPattern = function( options, cldr ) {
 		case "date" in options:
 		case "time" in options:
 			result = cldr.main([
-				"dates/calendars/{calendar}",
+				"dates/calendars",
+				calendar,
 				"date" in options ? "dateFormats" : "timeFormats",
 				( options.date || options.time )
 			]);
@@ -146,8 +214,8 @@ var dateExpandPattern = function( options, cldr ) {
 
 		case "datetime" in options:
 			result = combineDateTime( options.datetime,
-				cldr.main([ "dates/calendars/{calendar}/dateFormats", options.datetime ]),
-				cldr.main([ "dates/calendars/{calendar}/timeFormats", options.datetime ])
+				cldr.main([ "dates/calendars", calendar, "dateFormats", options.datetime ]),
+				cldr.main([ "dates/calendars", calendar, "timeFormats", options.datetime ])
 			);
 			break;
 
@@ -202,57 +270,13 @@ var dateDistanceInDays = function( from, to ) {
 
 
 /**
- * startOf changes the input to the beginning of the given unit.
- *
- * For example, starting at the start of a day, resets hours, minutes
- * seconds and milliseconds to 0. Starting at the month does the same, but
- * also sets the date to 1.
- *
- * Returns the modified date
- */
-var dateStartOf = function( date, unit, gdate ) {
-  // gdate is the globalized date for date. if unit is not 'year' or 'month', then it is not needed
-	// passing it in is ugly; it should take a calendar constructor or cldr object
-  if (unit === "year"){
-    // no choice but to go through each month one at a time
-    for (var lastMonth = gdate.nextMonth(-1); lastMonth.getYear() === gdate.getYear();){
-      gdate = lastMonth;
-			lastMonth = gdate.nextMonth(-1);
-    }
-  }
-	date = new Date( date.getTime() );
-	switch ( unit ) {
-		case "year":
-		/* falls through */
-		case "month":
-			date = gdate.nextDate(1 - gdate.getDate()).toDate();
-		/* falls through */
-		case "day":
-			date.setHours( 0 );
-		/* falls through */
-		case "hour":
-			date.setMinutes( 0 );
-		/* falls through */
-		case "minute":
-			date.setSeconds( 0 );
-		/* falls through */
-		case "second":
-			date.setMilliseconds( 0 );
-	}
-	return date;
-};
-
-
-
-
-/**
  * dayOfYear
  *
  * Return the distance in days of the globalized date to the beginning of the year [0-d].
  */
 var dateDayOfYear = function( gdate ) {
   var date = gdate.toDate();
-	return Math.floor( dateDistanceInDays( dateStartOf( date, "year", gdate ), date ) );
+	return Math.round( dateDistanceInDays( gdate.startOfYear().toDate(), date ) );
 };
 
 
@@ -268,6 +292,117 @@ var dateWeekDays = [ "sun", "mon", "tue", "wed", "thu", "fri", "sat" ];
  */
 var dateFirstDayOfWeek = function( cldr ) {
 	return dateWeekDays.indexOf( cldr.supplemental.weekData.firstDay() );
+};
+
+
+
+// a generalized (Globalized?) date. While eras, years and dates are numbers,
+// month indices in CLDR are strings (numbers plus a possible modifier)
+// There is no concept of month or year order built into CLDR (thus the month after "1" isn't
+// necessarily "2", and the year before 1000 isn't necessarily 999.
+// Dates are assumed to go in order,
+// so the native Date implementation is valid.
+// These objects are designed to be immutable.
+
+function Gdate(){}
+Gdate.prototype = {
+  getEra: function() { return this._era; },
+  getYear: function() { return this._year; },
+  getMonth: function() { return this._month; },
+  getDate: function() { return this._date; },
+  nextDate: function( n ) {
+    if (arguments.length === 0){
+			n = 1;
+		}
+		// I'm getting errors with new Date(this._d)
+		var d = new Date(this._d.getTime());
+    d.setDate(this._d.getDate() + n);
+    return new this.constructor(d);
+  },
+	nextYear: undefined, // virtual function
+	nextMonth: undefined, // virtual function
+	startOfMonth: function() {
+		return this.nextDate( 1 - this._date );
+	},
+	startOfYear: function() {
+    // no choice but to go through each month one at a time
+		var thisMonth = this,
+			lastMonth = thisMonth.nextMonth(-1);
+   while ( lastMonth.getYear() === thisMonth._year ){
+      thisMonth = lastMonth;
+			lastMonth = thisMonth.nextMonth(-1);
+    }
+		return thisMonth.startOfMonth();
+  },
+  toDate: function() {
+		// we need to make sure that an arbitrary time doesn't leak through
+		var d = new Date( this._d.getFullYear(), this._d.getMonth(), this._d.getDate(),
+			0, 0, 0, 0 );
+		d.setFullYear( this._d.getFullYear() ); // deal with Y2K bug in Javascript
+		return d;
+	},
+  _init: function( era, year, month, date ) {
+    if (era instanceof Date){
+      this._setDate(era);
+    }else if ( era instanceof Gdate ){
+      this._setFields (era.getEra(), era.getYear(), era.getMonth(), era.getDate());
+    }else {
+      this._setFields (era, year, month, date);
+    }
+  },
+	constructor: Gdate, // allow the new this.constructor idiom
+	_setDate: undefined, // virtual function
+	_setFields: undefined, // virtual function
+  _era: NaN,
+  _year: NaN,
+  _month: undefined,
+  _date: NaN,
+  _d: new Date(NaN)
+};
+
+Gdate.calendars = {}; // this will store the calendar algorithms (the Gdate subclass constructors)
+
+var gdateGdate = Gdate;
+
+window.Gdate = Gdate;
+
+
+
+/**
+ * startOf changes the input to the beginning of the given unit.
+ *
+ * For example, starting at the start of a day, resets hours, minutes
+ * seconds and milliseconds to 0. Starting at the month does the same, but
+ * also sets the date to 1.
+ *
+ * calendar is the name of the calendar system, to determine what a "year" and "month" are
+ *
+ * Returns the modified date
+ */
+var dateStartOf = function( date, unit, calendar ) {
+	if ( unit === "year" ){
+		date = new gdateGdate.calendars[ calendar ]( date ).startOfYear().toDate();
+	} else if ( unit === "month" ){
+		date = new gdateGdate.calendars[ calendar ]( date ).startOfMonth().toDate();
+	} else {
+		date = new Date( date.getTime() );
+	}
+	switch ( unit ) {
+		case "year":
+		case "month":
+		case "day":
+			date.setHours( 0 );
+		/* falls through */
+		case "hour":
+			date.setMinutes( 0 );
+		/* falls through */
+		case "minute":
+			date.setSeconds( 0 );
+		/* falls through */
+		case "second":
+			date.setMilliseconds( 0 );
+	}
+	return date;
 };
 
 
@@ -345,7 +480,7 @@ var dateTimezoneHourFormat = function( date, format, timeSeparator, formatNumber
  */
 var dateFormat = function( date, numberFormatters, properties ) {
 	var timeSeparator = properties.timeSeparator,
-		gdate = new properties.calendar(date);
+		gdate = new Gdate.calendars[ properties.calendar ]( date );
 
 	return properties.pattern.replace( datePatternRe, function( current ) {
 		var ret,
@@ -407,7 +542,7 @@ var dateFormat = function( date, numberFormatters, properties ) {
 					properties.firstDay -
 					properties.minDays
 				);
-				ret = (new properties.calendar(ret)).getYear();
+				ret = (new Gdate.calendars[ properties.calendar ]( ret )).getYear();
 				if ( length === 2 ) {
 					ret = String( ret );
 					ret = +ret.substr( ret.length - 2 );
@@ -441,7 +576,7 @@ var dateFormat = function( date, numberFormatters, properties ) {
 				// Week of Year.
 				// woy = ceil( ( doy + dow of 1/1 ) / 7 ) - minDaysStuff ? 1 : 0.
 				// TODO should pad on ww? Not documented, but I guess so.
-				ret = dateDayOfWeek( dateStartOf( date, "year", gdate ), properties.firstDay );
+				ret = dateDayOfWeek( gdate.startOfYear().toDate(), properties.firstDay );
 				ret = Math.ceil( ( dateDayOfYear( gdate ) + ret ) / 7 ) -
 					( 7 - ret >= properties.minDays ? 0 : 1 );
 				break;
@@ -449,7 +584,7 @@ var dateFormat = function( date, numberFormatters, properties ) {
 			case "W":
 				// Week of Month.
 				// wom = ceil( ( dom + dow of `1/month` ) / 7 ) - minDaysStuff ? 1 : 0.
-				ret = dateDayOfWeek( dateStartOf( date, "month", gdate ), properties.firstDay );
+				ret = dateDayOfWeek( gdate.startOfMonth().toDate(), properties.firstDay );
 				ret = Math.ceil( ( date.getDate() + ret ) / 7 ) -
 					( 7 - ret >= properties.minDays ? 0 : 1 );
 				break;
@@ -601,7 +736,8 @@ var dateFormat = function( date, numberFormatters, properties ) {
 var dateFormatProperties = function( pattern, cldr ) {
 	var properties = {
 			pattern: pattern,
-			timeSeparator: numberSymbol( "timeSeparator", cldr )
+			timeSeparator: numberSymbol( "timeSeparator", cldr ),
+			calendar: gdateCalendarForLocale( cldr )
 		},
 		widths = [ "abbreviated", "wide", "narrow" ];
 
@@ -611,6 +747,7 @@ var dateFormatProperties = function( pattern, cldr ) {
 		}
 		properties.numberFormatters[ pad ] = stringPad( "", pad );
 	}
+
 	pattern.replace( datePatternRe, function( current ) {
 		var formatNumber,
 			chr = current.charAt( 0 ),
@@ -633,7 +770,9 @@ var dateFormatProperties = function( pattern, cldr ) {
 			// Era
 			case "G":
 				properties.eras = cldr.main([
-					"dates/calendars/{calendar}/eras",
+					"dates/calendars",
+					properties.calendar,
+					"eras",
 					length <= 3 ? "eraAbbr" : ( length === 4 ? "eraNames" : "eraNarrow" )
 				]);
 				break;
@@ -668,7 +807,9 @@ var dateFormatProperties = function( pattern, cldr ) {
 						properties.quarters[ chr ] = {};
 					}
 					properties.quarters[ chr ][ length ] = cldr.main([
-						"dates/calendars/{calendar}/quarters",
+						"dates/calendars",
+						properties.calendar,
+						"quarters",
 						chr === "Q" ? "format" : "stand-alone",
 						widths[ length - 3 ]
 					]);
@@ -688,7 +829,9 @@ var dateFormatProperties = function( pattern, cldr ) {
 						properties.months[ chr ] = {};
 					}
 					properties.months[ chr ][ length ] = cldr.main([
-						"dates/calendars/{calendar}/months",
+						"dates/calendars",
+						properties.calendar,
+						"months",
 						chr === "M" ? "format" : "stand-alone",
 						widths[ length - 3 ]
 					]);
@@ -742,17 +885,23 @@ var dateFormatProperties = function( pattern, cldr ) {
 					// http://www.unicode.org/reports/tr35/tr35-dates.html#months_days_quarters_eras
 					// http://unicode.org/cldr/trac/ticket/6790
 					properties.days[ chr ][ length ] = cldr.main([
-							"dates/calendars/{calendar}/days",
+							"dates/calendars",
+							properties.calendar,
+							"days",
 							chr === "c" ? "stand-alone" : "format",
 							"short"
 						]) || cldr.main([
-							"dates/calendars/{calendar}/days",
+							"dates/calendars",
+							properties.calendar,
+							"days",
 							chr === "c" ? "stand-alone" : "format",
 							"abbreviated"
 						]);
 				} else {
 					properties.days[ chr ][ length ] = cldr.main([
-						"dates/calendars/{calendar}/days",
+						"dates/calendars",
+						properties.calendar,
+						"days",
 						chr === "c" ? "stand-alone" : "format",
 						widths[ length < 3 ? 0 : length - 3 ]
 					]);
@@ -761,9 +910,11 @@ var dateFormatProperties = function( pattern, cldr ) {
 
 			// Period (AM or PM)
 			case "a":
-				properties.dayPeriods = cldr.main(
-					"dates/calendars/{calendar}/dayPeriods/format/wide"
-				);
+				properties.dayPeriods = cldr.main([
+					"dates/calendars",
+					properties.calendar,
+					"dayPeriods/format/wide"
+				]);
 				break;
 
 			// Hour
@@ -824,6 +975,484 @@ var outOfRange = function( value, low, high ) {
 
 
 
+function GregorianDate() { this._init.apply(this, arguments); }
+GregorianDate.prototype = new Gdate();
+
+GregorianDate.prototype.constructor = Gdate.calendars.gregorian = GregorianDate;
+GregorianDate.prototype.nextYear = function(n) {
+  if (arguments.length === 0){
+		n = 1;
+	}
+  var d = new Date(this._d);
+  d.setFullYear(this._d.getFullYear() + n);
+  this._coerceMonth(d, this._d.getMonth());
+  return new GregorianDate(d);
+};
+GregorianDate.prototype.nextMonth = function(n) {
+  if (arguments.length === 0){
+		n = 1;
+	}
+  var d = new Date(this._d.getTime());
+  d.setMonth(this._d.getMonth() + n);
+  this._coerceMonth(d, (this._d.getMonth() + n + 12) % 12);
+  return new GregorianDate(d);
+};
+GregorianDate.prototype._coerceMonth = function(d, m) {
+   if (d.getMonth() > m){
+    // date was too large; overflowed into the next month
+    d.setDate(1);
+    d.setMonth(m + 1);
+    d.setDate(0); // last day of previous month
+  }
+};
+GregorianDate.prototype._setDate = function(d) {
+  this._d = d;
+  if (isNaN(d.getTime())){
+    this._era = NaN;
+    this._year = NaN;
+    this._month = undefined;
+    this._date = NaN;
+  }else {
+    this._era = d.getFullYear() < 0 ? 0 : 1;
+    this._year = Math.abs(d.getFullYear());
+		if (this._era === 0) {
+			++this._year; // Date year == -4 corresponds to 5 BCE
+		}
+    this._month = "" + (d.getMonth() + 1);  // quickie stringify
+    this._date = d.getDate();
+  }
+};
+GregorianDate.prototype._setFields = function(era, year, month, date) {
+  var d = new Date(), m = parseInt (month, 10) - 1;
+  if (era == null){
+		era = d.getFullYear() < 0 ? 0 : 1;
+	}
+  if (year == null){
+		year = d.getFullYear();
+	}
+  if (month == null){
+		month = d.getMonth() + 1;
+	}
+  if (date == null){
+		date = d.getDate();
+	}
+  if (year < 1){
+		year = 1;
+	}
+  if (m < 0){
+		m = 0;
+	}
+  if (m > 11){
+		m = 11;
+	}
+  if (date < 1){
+		date = 1;
+	}
+  // use d to check for valid date's
+	year = era === 1 ? year : 1 - year;
+  d.setFullYear(year);
+  d.setMonth(m);
+  d.setDate(date);
+  this._coerceMonth(d, m);
+  this._setDate(d);
+};
+
+
+
+
+// convert from Unicode month indicies to algorithmically friendly numbers
+var months = [ "8", "9", "10", "11", "12", "13", "1", "2", "3",
+	"4", "5", "7", "6", "7-yeartype-leap" ],
+	monthsReversed = {};
+months.forEach( function( value, i ) { monthsReversed[value] = i; } );
+
+function addDay(d, n){
+	var ret = new Date (d.getTime());
+	ret.setDate( ret.getDate() + n );
+	return ret;
+}
+
+function HebrewDate() { this._init.apply(this, arguments); }
+HebrewDate.prototype = new Gdate();
+
+HebrewDate.prototype.constructor = Gdate.calendars.hebrew = HebrewDate;
+HebrewDate.prototype.nextYear = function(n) {
+  if (arguments.length === 0){
+		n = 1;
+	}
+	return new HebrewDate( this._era, this._year + n, this._month, this._date );
+};
+HebrewDate.prototype.nextMonth = function(n) {
+	var ret,
+		hd = civ2heb( this._d ),
+		roshchodesh = addDay(this._d, -hd.d + 1),
+		//  the min/max() correct for the possibility of other month being too short
+		daysinlastmonth = Math.max( civ2heb( addDay( roshchodesh, -1 ) ).daysinmonth, hd.d ),
+		nextroshchodesh = addDay( roshchodesh, hd.daysinmonth ),
+		daysintonextmonth = Math.min( hd.d, civ2heb( nextroshchodesh ).daysinmonth );
+  if (arguments.length === 0){
+		n = 1;
+	}
+	if (n === 0 ){
+		return new HebrewDate ( this );
+	}else if ( n === 1 ){
+		return new HebrewDate( addDay( roshchodesh, hd.daysinmonth + daysintonextmonth - 1 ) );
+	}else if ( n === -1 ){
+		return new HebrewDate( addDay( this._d, -daysinlastmonth) );
+	}else if ( n > 0 ) {
+		ret = this.nextMonth( 1 ).nextMonth( n - 1 ); // anything wrong with tail recursion?
+	}else /*  n < 0 */ {
+		ret = this.nextMonth( -1 ).nextMonth( n + 1 );
+	}
+	if ( ret._date === this._date ) {
+		return ret;
+	}
+	// have to deal with dates that were coerced too far back by going through short months
+	return new HebrewDate ( this._era, ret._year, ret._month, this._date );
+};
+HebrewDate.prototype._coerceMonth = function( m, y ) {
+	var roshchodesh,
+		hd = civ2heb( this._d );
+	if (hd.m === m && hd.y === y ) {
+		return;
+	}
+	roshchodesh = civ2heb( heb2civ({ y: y, m: m, d:1 }) );
+	this._setDate( heb2civ({ y: y, m: m, d: roshchodesh.daysinmonth }) );
+};
+HebrewDate.prototype._setDate = function(d) {
+	var hd = civ2heb( d );
+  if ( hd.y < 1 || isNaN(d.getTime()) ){ // no dates before Creation
+    this._era = NaN;
+    this._year = NaN;
+    this._month = undefined;
+    this._date = NaN;
+		this._d = new Date( NaN );
+  }else {
+		this._era = 0;
+		this._year = hd.y;
+		this._month = months[ hd.m ];
+		this._date = hd.d;
+		this._d = d;
+  }
+};
+HebrewDate.prototype._setFields = function(era, year, month, date) {
+	var m,
+		htoday = civ2heb( new Date() );
+
+	era = 0; // only one era
+	if ( year == null ) {
+		year = htoday.y;
+	}else if ( year < 1 ) {
+		year = 1;
+	}
+	if ( month == null ) {
+		m = htoday.m;
+	}else if ( month in monthsReversed ) {
+		m = monthsReversed[month];
+	}else {
+		this._setDate( new Date(NaN) );
+		return;
+	}
+	if ( date == null ) {
+		date = htoday.d;
+	}else if ( date < 1 ) {
+		date = 1;
+	}
+	htoday = {
+		y: year,
+		m: m,
+		d: date
+	};
+	this._setDate( heb2civ( htoday ) );
+	this._coerceMonth( m, year );
+};
+
+function pesach(year) {
+	var a, b, c, m,
+		mar;	// "day in March" on which Pesach falls
+
+	a = Math.floor( (12 * year + 17) % 19 );
+	b = Math.floor( year % 4 );
+	m = 32.044093161144 + 1.5542417966212 * a +  b / 4 - 0.0031777940220923 * year;
+	if (m < 0) {
+		m -= 1;
+	}
+	mar = Math.floor( m );
+	if ( m < 0 ) {
+		m++;
+	}
+	m -= mar;
+
+	c = Math.floor( ( mar + 3 * year + 5 * b + 5 ) % 7);
+	if ( c === 0 && a > 11 && m >= 0.89772376543210 ) {
+		mar++;
+	}else if ( c === 1 && a > 6 && m >= 0.63287037037037 ) {
+		mar += 2;
+	}else if ( c === 2 || c === 4 || c === 6 ) {
+		mar++;
+	}
+
+	mar += Math.floor( ( year - 3760 ) / 100 ) - Math.floor( ( year - 3760 ) / 400 ) - 2;
+	return mar;
+}
+
+function leap(y) {
+	return ( ( y % 400 === 0 ) || ( y % 100 !== 0 && y % 4 === 0 ) );
+}
+
+// takes a Date object, returns an object with
+// { m: hebrewmonth, d: hebrewdate, y: hebrewyear,
+//   daysinmonth: number of days in this Hebrew month }
+function civ2heb( date ) {
+	var days, hy, p, anchor, adarType,
+		d = date.getDate(),
+		m = date.getMonth() + 1,
+		y = date.getFullYear();
+
+	m -= 2;
+	if ( m <= 0 ) { // Jan or Feb
+		m += 12;
+		y -= 1;
+	}
+
+	d += Math.floor( 7 * m / 12 + 30 * (m - 1) ); // day in March
+	hy = y + 3760;	// get Hebrew year
+	p = pesach( hy );
+	if (d <= p - 15) { // before 1 Nisan
+		anchor = p;
+		d += 365;
+		if ( leap(y) ) {
+			d++;
+		}
+		y -= 1;
+		hy -= 1;
+		p = pesach( hy );
+	}else {
+		anchor = pesach( hy + 1 );
+	}
+
+	d -= p - 15;
+	anchor -= p - 12;
+	y++;
+	if ( leap( y ) ){
+		anchor++;
+	}
+
+	for ( m = 0; m < 11; m++ ) {
+		if ( m === 7 && anchor % 30 === 2 ) {
+			days = 30; // Cheshvan
+		}else if ( m === 8 && anchor % 30 === 0 ) {
+			days = 29; // Kislev
+		}else {
+			days = 30 - m % 2;
+		}
+		if ( d <= days ) {
+			break;
+		}
+		d -= days;
+	}
+
+	adarType = 0;			// plain old Adar
+	if ( m === 11 ) {
+		days = 29;
+	}
+	if ( m === 11 && anchor >= 30 ) {
+		if (d > 30) {
+			adarType = 2;	// Adar 2
+			d -= 30;
+		}else {
+			adarType = 1;	// Adar 1
+			days = 30;
+		}
+	}
+
+	if ( m >= 6 ) {		// Tishrei or after?
+		hy++;
+	}
+
+	if ( m === 11 ) { // adjust for Adars
+		m += adarType;
+	}
+	return { d: d, m: m, y: hy, daysinmonth: days };
+}
+
+// Takes a hebrew date in the object form above and returns a Date object
+// Assumes that the months are valid, except for the following:
+// Unicode assumes that m===11 becomes m=13 in leap years (plain Adar translates to Adar II).
+// In regular years, both m===12 and m===13 become m=11 (Adar I and Adar II translate to Adar).
+function heb2civ( h ){
+	var d, day, isleap, m, p, yearlength, yeartype;
+	// dates through Cheshvan are completely determined by pesach
+	if ( h.m < 6 ) {
+		return new Date ( h.y - 3760, 2, pesach( h.y ) - 15 + h.d + Math.ceil( h.m * 29.5 ) );
+	}
+	if ( h.m < 8 ) {
+		return new Date ( h.y - 3761, 2, pesach( h.y - 1 ) - 15 + h.d + Math.ceil( h.m * 29.5 ) );
+	}
+	p = pesach( h.y - 1 );
+	yearlength = pesach( h.y ) - p + 365 + ( leap( h.y - 3760 ) ? 1 : 0 );
+	yeartype = yearlength % 30 - 24; // -1 is chaser, 0 is ksidrah, +1 is male
+	isleap = yearlength > 360;
+	m = h.m;
+	if ( isleap && m === 11 ) {
+		m += 2;
+	}else if ( !isleap && m > 11 ) {
+		m = 11;
+	}
+	day = p - 15 + h.d + Math.ceil( m * 29.5 ) + yeartype;
+	if (m > 11) {
+		day -= 29; // we added an extra month in there (in leap years, there is no plain Adar)
+	}
+	d = new Date (h.y - 3761, 2, day);
+	// if the hebrew date was valid but wrong
+	// (Cheshvan or Kislev 30 in a haser year; Adar I 30 in a non-leap year)
+	// then move it back a day to the 29th
+	// we won't try to correct an actually invalid date
+	if ( h.d < 30 || civ2heb( d ).m === m ){
+		return d; // it worked
+	}
+	return new Date (h.y - 3761, 2, day - 1);
+}
+
+
+
+// Islamic tabular calendar (http://en.wikipedia.org/wiki/Tabular_Islamic_calendar)
+// from Keith Wood's https://github.com/kbwood/calendars/blob/master/jquery.calendars.islamic.js
+// Used under license
+var jdEpoch = 1948439.5,
+		daysPerMonth = [ 30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29 ];
+
+function IslamicDate() { this._init.apply(this, arguments); }
+IslamicDate.prototype = new Gdate();
+
+IslamicDate.prototype.constructor = Gdate.calendars.islamic = IslamicDate;
+IslamicDate.prototype.nextYear = function(n) {
+  if (arguments.length === 0){
+		n = 1;
+	}
+	return new IslamicDate( this._era, this._year + n, this._month, this._date );
+};
+IslamicDate.prototype.nextMonth = function(n) {
+  if (arguments.length === 0){
+		n = 1;
+	}
+	var id = fromJD( dateToJD( this._d ) ),
+		m = id.m + n,
+		y = id.y + Math.floor( ( m - 1 ) / 12 );
+	m = ( m + 11 ) % 12 + 1;
+	return new IslamicDate( this._era, y, m, id.d );
+};
+IslamicDate.prototype._coerceMonth = function( m, y ) {
+	var id = fromJD( dateToJD( this._d ) );
+	if (id.m === m && id.y === y ) {
+		return;
+	}
+	this._setDate( jdToDate( toJD( y, m, daysInMonth( y, m ) ) ) );
+};
+IslamicDate.prototype._setDate = function(d) {
+	var id = fromJD( dateToJD( d ) );
+  if ( id.y < 1 || isNaN(d.getTime()) ){ // no dates before Epoch
+    this._era = NaN;
+    this._year = NaN;
+    this._month = undefined;
+    this._date = NaN;
+		this._d = new Date( NaN );
+  }else {
+		this._era = 0;
+		this._year = id.y;
+		this._month = "" + id.m;
+		this._date = id.d;
+		this._d = d;
+  }
+};
+IslamicDate.prototype._setFields = function(era, year, month, date) {
+	var m = parseInt (month, 10),
+		itoday = fromJD( dateToJD( new Date() ) );
+
+	era = 0; // only one era
+	if ( year == null ) {
+		year = itoday.y;
+	}else if ( year < 1 ) {
+		year = 1;
+	}
+	if ( month == null ) {
+		m = itoday.m;
+	}else if ( m < 1 ) {
+		m = 1;
+	}else if ( m > 12 ){
+		m = 12;
+	}
+	if ( date == null ) {
+		date = itoday.d;
+	}else if ( date < 1 ) {
+		date = 1;
+	}
+	this._setDate( jdToDate( toJD( year, m, date ) ) );
+	this._coerceMonth( m, year );
+};
+
+function leapYear ( year ) {
+	return ( year * 11 + 14) % 30 < 11;
+}
+
+function daysInMonth ( year, month ) {
+	return daysPerMonth[ month - 1 ] +
+		( month === 12 && leapYear( year ) ? 1 : 0 );
+}
+
+// Retrieve the Julian date equivalent for this date,
+//	i.e. days since January 1, 4713 BCE Greenwich noon.
+function toJD ( year, month, day ) {
+	return day + Math.ceil( 29.5 * (month - 1) ) + ( year - 1 ) * 354 +
+		Math.floor( 3 + (11 * year ) / 30 + jdEpoch - 1 );
+}
+
+function fromJD ( jd ) {
+	var month, year, day;
+	jd = Math.floor( jd ) + 0.5;
+	year = Math.floor( (30 * ( jd - jdEpoch ) + 10646 ) / 10631 );
+	year = (year <= 0 ? year - 1 : year);
+	month = Math.min( 12, Math.ceil( ( jd - 29 - toJD( year, 1, 1 ) ) / 29.5 ) + 1 );
+	day = jd - toJD( year, month, 1 ) + 1;
+	return { y: year, m: month, d: day };
+}
+
+function dateToJD (d) {
+	var a, b,
+		year = d.getFullYear(),
+		month = d.getMonth(),
+		date = d.getDate();
+	// Jean Meeus algorithm, "Astronomical Algorithms", 1991
+	if (month < 2) {
+		month += 12;
+		year--;
+	}
+	a = Math.floor( year / 100 );
+	b = 2 - a + Math.floor( a / 4 );
+	return Math.floor( 365.25 * ( year + 4716 )) +
+		Math.floor(30.6001 * ( month + 2 ) ) + date + b - 1524.5;
+}
+
+function jdToDate ( jd ){
+	var b, c, d, e, day, month, year, date,
+		z = Math.floor( jd + 0.5 ),
+		a = Math.floor( ( z - 1867216.25 ) / 36524.25 );
+	a = z + 1 + a - Math.floor( a / 4 );
+	b = a + 1524;
+	c = Math.floor( ( b - 122.1 ) / 365.25);
+	d = Math.floor( 365.25 * c );
+	e = Math.floor( ( b - d ) / 30.6001);
+	day = b - d - Math.floor( e * 30.6001 );
+	month = e - ( e > 13.5 ? 14 : 2 );
+	year = c - ( month > 1.5 ? 4716 : 4715 );
+	date = new Date( year, month, day );
+	date.setFullYear( year ); // deal with Y2K bug
+	return date;
+}
+
+
+
+
 /**
  * parse( value, tokens, properties )
  *
@@ -836,8 +1465,7 @@ var outOfRange = function( value, low, high ) {
  * ref: http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Format_Patterns
  */
 var dateParse = function( value, tokens, properties ) {
-	var amPm, daysOfYear, hour, hour12, timezoneOffset, valid,
-    date, gdate, ret, todayYear, startOfYear,
+	var amPm, day, daysOfYear, era, hour, hour12, month, timezoneOffset, valid, year,
 		YEAR = 0,
 		MONTH = 1,
 		DAY = 2,
@@ -845,32 +1473,10 @@ var dateParse = function( value, tokens, properties ) {
 		MINUTE = 4,
 		SECOND = 5,
 		MILLISECONDS = 6,
-    calendar = Globalize.calendars[properties.calendar],
+		date = new Date(),
+		gdate = new Gdate.calendars[ properties.calendar ]( date ),
 		truncateAt = [],
 		units = [ "year", "month", "day", "hour", "minute", "second", "milliseconds" ];
-
-	// Assumptions:
-	// If only times are set, use today's date.
-	// If era is not set, use today's era
-	// If year is not set, use today's year
-	// If neither month nor date are set, use the beginning of the year
-	//   Using the beginning of the year is an exception to all these other
-	//   rules. Why not today's date? The technical report
-	//   http://www.unicode.org/reports/tr35/tr35-dates.html doesn't specify
-	// If month is not set but date is, use today's month
-
-	date = new Date();
-	gdate = new calendar( date );
-	ret = {
-		era: gdate.getEra(),
-		year: gdate.getYear(),
-		month: undefined,
-		date: undefined,
-		hour: date.getHours(),
-		minute: date.getMinutes(),
-		second: date.getSeconds(),
-		milliseconds: 0
-	};
 
 	if ( !tokens.length ) {
 		return null;
@@ -898,7 +1504,7 @@ var dateParse = function( value, tokens, properties ) {
 			// Era
 			case "G":
 				truncateAt.push( YEAR );
-				ret.era = +token.value;
+				era = +token.value;
 				break;
 
 			// Year
@@ -910,14 +1516,13 @@ var dateParse = function( value, tokens, properties ) {
 					}
 					// mimic dojo/date/locale: choose century to apply, according to a sliding
 					// window of 80 years before and 20 years after present year.
-          todayYear = (new calendar(date)).getYear();
-					century = Math.floor( todayYear / 100 ) * 100;
+					century = Math.floor( date.getFullYear() / 100 ) * 100;
 					value += century;
-					if ( value > todayYear + 20 ) {
+					if ( value > date.getFullYear() + 20 ) {
 						value -= 100;
 					}
 				}
-        ret.year = value;
+				year = value;
 				truncateAt.push( YEAR );
 				break;
 
@@ -934,7 +1539,7 @@ var dateParse = function( value, tokens, properties ) {
 			// Month
 			case "M":
 			case "L":
-				ret.month = token.value;
+				month = "" + token.value;
 				truncateAt.push( MONTH );
 				break;
 
@@ -945,7 +1550,7 @@ var dateParse = function( value, tokens, properties ) {
 
 			// Day
 			case "d":
-				ret.date = token.value;
+				day = token.value;
 				truncateAt.push( DAY );
 				break;
 
@@ -979,7 +1584,7 @@ var dateParse = function( value, tokens, properties ) {
 					return false;
 				}
 				hour = hour12 = true;
-				ret.hour = ( value === 12 ? 0 : value );
+				date.setHours( value === 12 ? 0 : value );
 				truncateAt.push( HOUR );
 				break;
 
@@ -989,7 +1594,7 @@ var dateParse = function( value, tokens, properties ) {
 					return false;
 				}
 				hour = hour12 = true;
-				ret.hour = value;
+				date.setHours( value );
 				truncateAt.push( HOUR );
 				break;
 
@@ -999,7 +1604,7 @@ var dateParse = function( value, tokens, properties ) {
 					return false;
 				}
 				hour = true;
-				ret.hour =( value === 24 ? 0 : value );
+				date.setHours( value === 24 ? 0 : value );
 				truncateAt.push( HOUR );
 				break;
 
@@ -1009,7 +1614,7 @@ var dateParse = function( value, tokens, properties ) {
 					return false;
 				}
 				hour = true;
-        ret.hour = value;
+				date.setHours( value );
 				truncateAt.push( HOUR );
 				break;
 
@@ -1019,7 +1624,7 @@ var dateParse = function( value, tokens, properties ) {
 				if ( outOfRange( value, 0, 59 ) ) {
 					return false;
 				}
-				ret.minute = value;
+				date.setMinutes( value );
 				truncateAt.push( MINUTE );
 				break;
 
@@ -1029,19 +1634,19 @@ var dateParse = function( value, tokens, properties ) {
 				if ( outOfRange( value, 0, 59 ) ) {
 					return false;
 				}
-				ret.second = value;
+				date.setSeconds( value );
 				truncateAt.push( SECOND );
 				break;
 
 			case "A":
-        ret.hour = 0;
-        ret.minute = 0;
-        ret.second = 0;
+				date.setHours( 0 );
+				date.setMinutes( 0 );
+				date.setSeconds( 0 );
 
 			/* falls through */
 			case "S":
 				value = Math.round( token.value * Math.pow( 10, 3 - length ) );
-        ret.milliseconds = value;
+				date.setMilliseconds( value );
 				truncateAt.push( MILLISECONDS );
 				break;
 
@@ -1051,7 +1656,7 @@ var dateParse = function( value, tokens, properties ) {
 			case "O":
 			case "X":
 			case "x":
-				timezoneOffset = token.value - (new Date()).getTimezoneOffset();
+				timezoneOffset = token.value - date.getTimezoneOffset();
 				break;
 		}
 
@@ -1068,56 +1673,48 @@ var dateParse = function( value, tokens, properties ) {
 		return null;
 	}
 
-	if ( ret.month == null && ret.date == null && truncateAt.indexOf( YEAR ) !== -1) {
-		// year was defined but month was not
-		gdate = new calendar( dateStartOf ( date, "year", gdate ) );
-		ret.month = gdate.getMonth();
-		ret.date = gdate.getDate();
-	}
-	if ( ret.month == null ) {
-		ret.month = gdate.getMonth();
-	}
-	if ( ret.date == null && truncateAt.indexOf( MONTH ) !== -1) {
-		// month was defined but date was not
-		ret.date = 1; // gdate assumes 1 is the first date of the month
-	}
-	if ( ret.date == null ) {
-		ret.date = gdate.getDate();
-	}
-
-  gdate = new calendar(ret.era, ret.year, ret.month, ret.date);
-
-	if ( daysOfYear !== undefined ) {
-    startOfYear = dateStartOf(gdate.toDate(), "year", gdate);
-    gdate = new calendar( startOfYear ).nextDate(daysOfYear - 1);
-		if ( gdate.getYear() !== startOfYear.getFullYear() ) {
-			return null;
-		}
-	}else if ( gdate.getDate() !== ret.date ) {
-		// if the date was invalid and gdate corrected it (like turning 31 Sep into 30 Sep),
-		// we want to reject it.
-		return null;
-	}
-
-  date = gdate.toDate();
-  date.setHours(ret.hour);
-  date.setMinutes(ret.minute);
-  date.setSeconds(ret.second);
-  date.setMilliseconds(ret.milliseconds);
-
 	if ( hour12 && amPm === "pm" ) {
 		date.setHours( date.getHours() + 12 );
 	}
 
+	// Unspecified units use today's values and
+	// truncate date at the most precise unit defined. Eg.
+	// If value is "12/31", and pattern is "MM/dd":
+	// => new Gdate( <current era>, <current Year>, 12, 31, 0, 0, 0, 0 );
+	if ( era == null ) {
+		era = gdate.getEra();
+	}
+	if ( year == null ) {
+		year = gdate.getYear();
+	}
+	if ( daysOfYear !== undefined ) {
+		gdate = new Gdate.calendars[ properties.calendar ]( era, year, gdate.getMonth(), 1 );
+		gdate = gdate.startOfYear().nextDate( daysOfYear - 1);
+		if ( gdate.getYear() !== year ) {
+			return null;
+		}
+	}
+	if ( month == null ) {
+		month = gdate.getMonth();
+	}
+	if ( day == null ) {
+		day = gdate.getDate();
+	}
+	gdate = new Gdate.calendars[ properties.calendar ]( era, year, month, day );
+	if ( gdate.getMonth() !== month || gdate.getDate() !== day ) {
+		// Question: do we really need to do this check,
+		// or can we rely on Gdate to correct out-of-bounds values?
+		// Question: when should this return null and when false?
+		return null;
+	}
+	date.setFullYear( gdate.toDate().getFullYear() );
+	date.setMonth( gdate.toDate().getMonth() );
+	date.setDate( gdate.toDate().getDate() );
+	truncateAt = Math.max.apply( null, truncateAt );
+	date = dateStartOf( date, units[ truncateAt ], properties.calendar );
 	if ( timezoneOffset ) {
 		date.setMinutes( date.getMinutes() + timezoneOffset );
 	}
-
-	// Truncate date at the most precise unit defined. Eg.
-	// If value is "12/31", and pattern is "MM/dd":
-	// => new Date( <current Year>, 12, 31, 0, 0, 0, 0 );
-	truncateAt = Math.max.apply( null, truncateAt );
-	date = dateStartOf( date, units[ truncateAt ], gdate );
 
 	return date;
 };
@@ -1135,7 +1732,7 @@ var dateParse = function( value, tokens, properties ) {
 var dateParseProperties = function( cldr ) {
 	return {
 		preferredTimeData: cldr.supplemental.timeData.preferred(),
-		calendar: cldr.attributes.calendar
+		calendar: gdateCalendarForLocale( cldr )
 	};
 };
 
@@ -1566,7 +2163,7 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 	var properties = {
 			pattern: pattern,
 			timeSeparator: numberSymbol( "timeSeparator", cldr ),
-			calendar: cldr.attributes.calendar
+			calendar: gdateCalendarForLocale( cldr )
 		},
 		widths = [ "abbreviated", "wide", "narrow" ];
 
@@ -1594,7 +2191,9 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 			// Era
 			case "G":
 				cldr.main([
-					"dates/calendars/{calendar}/eras",
+					"dates/calendars",
+					properties.calendar,
+					"eras",
 					length <= 3 ? "eraAbbr" : ( length === 4 ? "eraNames" : "eraNarrow" )
 				]);
 				break;
@@ -1611,7 +2210,9 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 			case "q":
 				if ( length > 2 ) {
 					cldr.main([
-						"dates/calendars/{calendar}/quarters",
+						"dates/calendars",
+						properties.calendar,
+						"quarters",
 						chr === "Q" ? "format" : "stand-alone",
 						widths[ length - 3 ]
 					]);
@@ -1625,7 +2226,9 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 				// lookup l=3...
 				if ( length > 2 ) {
 					cldr.main([
-						"dates/calendars/{calendar}/months",
+						"dates/calendars",
+						properties.calendar,
+						"months",
 						chr === "M" ? "format" : "stand-alone",
 						widths[ length - 3 ]
 					]);
@@ -1653,17 +2256,23 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 					// Note: if short day names are not explicitly specified, abbreviated day
 					// names are used instead http://www.unicode.org/reports/tr35/tr35-dates.html#months_days_quarters_eras
 					cldr.main([
-						"dates/calendars/{calendar}/days",
+						"dates/calendars",
+						properties.calendar,
+						"days",
 						[ chr === "c" ? "stand-alone" : "format" ],
 						"short"
 					]) || cldr.main([
-						"dates/calendars/{calendar}/days",
+						"dates/calendars",
+						properties.calendar,
+						"days",
 						[ chr === "c" ? "stand-alone" : "format" ],
 						"abbreviated"
 					]);
 				} else {
 					cldr.main([
-						"dates/calendars/{calendar}/days",
+						"dates/calendars",
+						properties.calendar,
+						"days",
 						[ chr === "c" ? "stand-alone" : "format" ],
 						widths[ length < 3 ? 0 : length - 3 ]
 					]);
@@ -1673,7 +2282,9 @@ var dateTokenizerProperties = function( pattern, cldr ) {
 			// Period (AM or PM)
 			case "a":
 				cldr.main([
-					"dates/calendars/{calendar}/dayPeriods/format/wide"
+					"dates/calendars",
+					properties.calendar,
+					"dayPeriods/format/wide"
 				]);
 				break;
 
@@ -1707,7 +2318,8 @@ function validateRequiredCldr( path, value ) {
 			/dates\/calendars\/[^\/]+\/dateTimeFormats\/availableFormats/,
 			/dates\/calendars\/[^\/]+\/days\/.*\/short/,
 			/supplemental\/timeData\/(?!001)/,
-			/supplemental\/weekData\/(?!001)/
+			/supplemental\/weekData\/(?!001)/,
+			/supplemental\/calendarPreferenceData/
 		]
 	});
 }
@@ -1741,7 +2353,6 @@ Globalize.prototype.dateFormatter = function( options ) {
 	cldr.on( "get", validateRequiredCldr );
 	pattern = dateExpandPattern( options, cldr );
 	properties = dateFormatProperties( pattern, cldr );
-	properties.calendar = Globalize.calendars[cldr.attributes.calendar];
 	cldr.off( "get", validateRequiredCldr );
 
 	// Create needed number formatters.
@@ -1783,7 +2394,6 @@ Globalize.prototype.dateParser = function( options ) {
 	pattern = dateExpandPattern( options, cldr );
 	tokenizerProperties = dateTokenizerProperties( pattern, cldr );
 	parseProperties = dateParseProperties( cldr );
-	parseProperties.calendar = cldr.attributes.calendar;
 	cldr.off( "get", validateRequiredCldr );
 
 	numberParser = this.numberParser({ raw: "0" });

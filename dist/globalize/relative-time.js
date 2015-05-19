@@ -7,10 +7,10 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2015-05-11T02:19Z
+ * Date: 2015-05-19T15:31Z
  */
 /*!
- * Globalize v1.0.0 2015-05-11T02:19Z Released under the MIT license
+ * Globalize v1.0.0 2015-05-19T15:31Z Released under the MIT license
  * http://git.io/TrdQbw
  */
 (function( root, factory ) {

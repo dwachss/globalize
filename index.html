@@ -2,7 +2,7 @@
 <html>
 <title>Globalize datepicker demo</title>
 <!--This isn't working for me at work. <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" />-->
-<link rel="stylesheet" href="http://fortawesome.github.io/Font-Awesome/assets/font-awesome/css/font-awesome.css" />
+<!-- <link rel="stylesheet" href="http://fortawesome.github.io/Font-Awesome/assets/font-awesome/css/font-awesome.css" /> -->
 <style>
 	.calendarBlock {
 		display: table;
@@ -16,6 +16,9 @@
 		border: 1px solid black;
 		border-collapse: collapse;
 		position: relative;
+	}
+	table {
+		width: 18em;
 	}
 	nav {
 		position: absolute;
@@ -39,6 +42,12 @@
 	}
 	[dir=rtl] nav {
 		transform: scaleX(-1);
+	}
+	td.other-month {
+		opacity: 0.5;
+	}
+	td.today {
+		box-shadow: 0 0 2px grey;
 	}
 </style>
 </head>
@@ -90,8 +99,7 @@ $.when (
 		gs[i] = [];
 		cals.forEach(function (cal, j){
 			gs[i][j] = Globalize(lang+'-u-ca-'+cal);
-			// the following illustrates that the current way Gdate is embedded in Globalize is unworkable
-			gs[i][j].gdate = Globalize.calendars[gs[i][j].cldr.attributes.calendar];
+			gs[i][j].gdate = Gdate.calendars[cal];
 		});
 	});
 	var faIcons = {
@@ -157,6 +165,7 @@ $.when (
 	}
 	function generateWeekdays (d, g){
 		var firstDay = weekdaysRev[g.cldr.supplemental.weekData.firstDay()];
+		d = new Date(d.getTime());
 		d.setDate (d.getDate() + firstDay - d.getDay());
 		var ret = [];
 		for (var i = 0; i < 7; ++i, d.setDate (d.getDate()+1)){ // weeks are assumed to have 7 days
@@ -167,29 +176,39 @@ $.when (
 	function generateTBody (d, g){
 		var firstDayOfWeek = weekdaysRev[g.cldr.supplemental.weekData.firstDay()];
 		var lastDayOfWeek = (firstDayOfWeek + 6) % 7;
-		var gd = new g.gdate(d);
+		var gd = new g.gdate(d).startOfMonth();
 		var month = gd.getMonth();
-		gd = new g.gdate(gd.getEra(), gd.getYear(), gd.getMonth(), 1); // months assumed to start with day 1
-		gd = gd.nextDate((gd.toDate().getDay() - firstDayOfWeek + 7) % 7); // move back to the start of the week
+		gd = gd.nextDate(-((gd.toDate().getDay() - firstDayOfWeek + 7) % 7)); // move back to the start of the week
+		var end = new g.gdate(d).nextMonth().startOfMonth().nextDate(-1);
+		console.log(new g.gdate(d).nextMonth().toDate(), new g.gdate(d).nextMonth().startOfMonth().toDate());
+		end = end.nextDate(((lastDayOfWeek - end.toDate().getDay() + 7) % 7)).nextDate(); // move forward to the end of the week
 		var tbody = $('<tbody>');
 		var row = $('<tr>');
-		while (gd.toDate() < d || gd.getMonth() === month || gd.toDate().getDay() !== lastDayOfWeek){
-			row.append(generateDate(gd.toDate(), gd.getMonth() === month, g));
+		while (gd.toDate() < end.toDate()){
+			row.append(generateDate(gd.toDate(), gd.getMonth() === month, d, g));
 			if (gd.toDate().getDay() === lastDayOfWeek){
 				tbody.append(row);
 				row = $('<tr>');
 			}
 			gd = gd.nextDate();
 		}
+		if (row.children().length) tbody.append(row);
 		return tbody;
 	}
-	function generateDate(d, isThisMonth, g){
-		return $('<td>').text(g.formatDate(d, {raw: 'd'}));
+	function generateDate(d, isThisMonth, thisDate, g){
+		var td = $('<td>').text(g.formatDate(d, {raw: 'd'}));
+		if ( !isThisMonth ) td.addClass('other-month');
+		if ( isSameDate(d, thisDate) ) td.addClass('today');
+		return td;
 	}
 	function generateText(d, g){
 		return $('<div>').text(g.formatDate(d, {raw: "EEEE, dd MMMM yyyy"}));
 	}
-
+	function isSameDate (d1, d2){
+		return d1.getFullYear() === d2.getFullYear() &&
+			d1.getMonth() === d2.getMonth() &&
+			d1.getDate() === d2.getDate();
+	}
 });
 </script>
 </body>
