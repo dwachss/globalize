@@ -7,10 +7,10 @@
  * Released under the MIT license
  * http://jquery.org/license
  *
- * Date: 2015-05-19T15:31Z
+ * Date: 2015-05-19T21:04Z
  */
 /*!
- * Globalize v1.0.0 2015-05-19T15:31Z Released under the MIT license
+ * Globalize v1.0.0 2015-05-19T21:04Z Released under the MIT license
  * http://git.io/TrdQbw
  */
 (function( root, factory ) {
@@ -365,7 +365,6 @@ Gdate.calendars = {}; // this will store the calendar algorithms (the Gdate subc
 var gdateGdate = Gdate;
 
 window.Gdate = Gdate;
-
 
 
 /**
@@ -1333,12 +1332,12 @@ IslamicDate.prototype.nextYear = function(n) {
 	return new IslamicDate( this._era, this._year + n, this._month, this._date );
 };
 IslamicDate.prototype.nextMonth = function(n) {
+	var id = fromJD( dateToJD( this._d ) ), m, y;
   if (arguments.length === 0){
 		n = 1;
 	}
-	var id = fromJD( dateToJD( this._d ) ),
-		m = id.m + n,
-		y = id.y + Math.floor( ( m - 1 ) / 12 );
+	m = id.m + n;
+	y = id.y + Math.floor( ( m - 1 ) / 12 );
 	m = ( m + 11 ) % 12 + 1;
 	return new IslamicDate( this._era, y, m, id.d );
 };
@@ -1404,7 +1403,7 @@ function daysInMonth ( year, month ) {
 //	i.e. days since January 1, 4713 BCE Greenwich noon.
 function toJD ( year, month, day ) {
 	return day + Math.ceil( 29.5 * (month - 1) ) + ( year - 1 ) * 354 +
-		Math.floor( 3 + (11 * year ) / 30 + jdEpoch - 1 );
+		Math.floor( ( 3 + 11 * year ) / 30 ) + jdEpoch - 1;
 }
 
 function fromJD ( jd ) {
