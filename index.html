@@ -182,7 +182,6 @@ $.when (
 		var month = gd.getMonth();
 		gd = gd.nextDate(-((gd.toDate().getDay() - firstDayOfWeek + 7) % 7)); // move back to the start of the week
 		var end = new g.gdate(d).nextMonth().startOfMonth().nextDate(-1);
-		console.log(new g.gdate(d).nextMonth().toDate(), new g.gdate(d).nextMonth().startOfMonth().toDate());
 		end = end.nextDate(((lastDayOfWeek - end.toDate().getDay() + 7) % 7)).nextDate(); // move forward to the end of the week
 		var tbody = $('<tbody>');
 		var row = $('<tr>');
